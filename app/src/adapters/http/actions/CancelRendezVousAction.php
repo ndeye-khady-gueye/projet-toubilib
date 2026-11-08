@@ -28,11 +28,14 @@ class CancelRendezVousAction
             $dto = $this->serviceRendezVous->annuler($id, $raison);
 
             $payload = json_encode([
-                'status' => 'success',
-                'data'   => [
+                'type' => 'ressource',
+                'rendez_vous' => [
                     'id'                => $dto->id,
                     'etat'              => $dto->etat,
                     'raison_annulation' => $dto->raisonAnnulation,
+                ],
+                'links' => [
+                    'self' => ['href' => "/rendezvous/{$dto->id}"]
                 ]
             ]);
 
@@ -41,12 +44,21 @@ class CancelRendezVousAction
                 ->withHeader('Content-Type', 'application/json')
                 ->withStatus(200);
 
+        } catch (InvalidArgumentException $e) {
+            // 400 Bad Request : Raison d'annulation manquante ou invalide
+            return $this->jsonError($response, $e->getMessage(), 400);
+
         } catch (RendezVousNotFoundException $e) {
+            // 404 Not Found : Rendez-vous inexistant
             return $this->jsonError($response, $e->getMessage(), 404);
-        } catch (InvalidRendezVousStateException | InvalidArgumentException $e) {
+
+        } catch (InvalidRendezVousStateException $e) {
+            // 422 Unprocessable Entity : État incompatible (déjà annulé, honoré, date passée)
             return $this->jsonError($response, $e->getMessage(), 422);
+
         } catch (\Throwable $e) {
-            return $this->jsonError($response, $e->getMessage(), 500);
+            // 500 Internal Server Error
+            return $this->jsonError($response, "Erreur serveur : " . $e->getMessage(), 500);
         }
     }
 
